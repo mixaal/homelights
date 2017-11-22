@@ -17,27 +17,27 @@ import net.mixaal.tools.homelights.image.ImageProcessor;
 import net.mixaal.tools.homelights.utils.CoreUtils;
 import net.mixaal.tools.homelights.utils.ScreenCaptureUtils;
 
+/**
+ * Main Application.
+ */
 public class HomeLightsMainApplication {
 
   private static final String ACCESS_KEY = CoreUtils.getAccessKey();
   private static final URI hueService = UriBuilder.fromUri(CoreUtils.getServiceLocation()).build();
   private static final IHueClient client = new HueClient(hueService, ACCESS_KEY);
 
-  private void deployColorToLight(Integer lightNo, float [] hsv) {
-    if(hsv[2] == 0.0f) {
-      client.lightOff(lightNo);
-      return;
-    }
-    final int hue = (int)(65535 * hsv[0]);
-    final int saturation = (int)(255 * hsv[1]);
-    //final int brightness = (int)(ImageAnalyzer.BrightnessMultiplication * 255 * hsv[2]);
-    Color c = new Color(Color.HSBtoRGB(hsv[0], hsv[1], hsv[2]));
-    final int brightness = (int)(ImageAnalyzer.BrightnessMultiplication * ImageProcessor.Brightness(c));
-    client.lightOn(lightNo, hue, saturation, brightness);
-  }
 
-  public void run(File screenshot) throws IOException {
-
+  /**
+   * Main body of the light control.
+   * 1) Take the desktop screenshot and save it under temp directory
+   * 2) Analyze the image and take the most relevant colors
+   * 3) Deploy the colors to the configured lights
+   *
+   * @param tempDir temporary directory where the screenshot is saved
+   * @throws IOException
+   */
+  public void run(File tempDir) throws IOException {
+    final File screenshot = ScreenCaptureUtils.captureScreen(tempDir);
     final BufferedImage image = ImageIO.read(screenshot);
     final int w = image.getWidth();
     final int h = image.getHeight();
@@ -54,6 +54,12 @@ public class HomeLightsMainApplication {
 
   }
 
+  /**
+   * Run the main  route {@link HomeLightsMainApplication#run(File)} forever.
+   * Adjust the sleep time to achieve the periodic update.
+   *
+   * @param args command line arguments
+   */
   public static void main(String args [] ) {
     final HomeLightsMainApplication application = new HomeLightsMainApplication();
     final File tempDir = Files.createTempDir();
@@ -61,17 +67,13 @@ public class HomeLightsMainApplication {
     while (true) {
       try {
         final long start = System.currentTimeMillis();
-        final File screenshot = ScreenCaptureUtils.captureScreen(tempDir);
-        final long screenEnd = System.currentTimeMillis();
-        application.run(screenshot);
+        application.run(tempDir);
         final long now = System.currentTimeMillis();
         final long duration = now - start;
         if(duration < MainThread.SleepBetweenCaptureTime) {
           CoreUtils.sleep(MainThread.SleepBetweenCaptureTime - duration);
-          //System.out.println("Duration : "+duration+"ms.");
         }
         else {
-          System.out.println("Screenshot duration: "+(screenEnd - start)+"ms.");
           System.out.println("Can't make the: "+MainThread.SleepBetweenCaptureTime+"ms capture interval period! Duration : "+duration+"ms.");
         }
       }
@@ -79,6 +81,26 @@ public class HomeLightsMainApplication {
         t.printStackTrace();
       }
     }
+  }
+
+  /**
+   * Deploy the hsb color to light id using the {@link IHueClient#lightOn(Integer, Integer, Integer, Integer)}
+   * method.
+   *
+   * @param lightNo light id
+   * @param hsv color to deploy
+   */
+  private void deployColorToLight(Integer lightNo, float [] hsv) {
+    if(hsv[2] == 0.0f) {
+      client.lightOff(lightNo);
+      return;
+    }
+    final int hue = (int)(65535 * hsv[0]);
+    final int saturation = (int)(255 * hsv[1]);
+    //final int brightness = (int)(ImageAnalyzer.BrightnessMultiplication * 255 * hsv[2]);
+    Color c = new Color(Color.HSBtoRGB(hsv[0], hsv[1], hsv[2]));
+    final int brightness = (int)(ImageAnalyzer.BrightnessMultiplication * ImageProcessor.Brightness(c));
+    client.lightOn(lightNo, hue, saturation, brightness);
   }
 
 }

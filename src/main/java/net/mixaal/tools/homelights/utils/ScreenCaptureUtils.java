@@ -1,10 +1,12 @@
 package net.mixaal.tools.homelights.utils;
 
-import com.google.common.io.Files;
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 import net.mixaal.tools.homelights.IConfig.ScreenCapture;
 
+/**
+ * Screen capture utility.
+ */
 public class ScreenCaptureUtils {
 
   public static File captureScreen(File tempDir) {

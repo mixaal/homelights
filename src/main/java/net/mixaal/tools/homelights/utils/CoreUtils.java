@@ -8,6 +8,9 @@ import java.io.IOException;
 import net.mixaal.tools.homelights.IConfig;
 import net.mixaal.tools.homelights.IConfig.SystemProperties;
 
+/**
+ * Basic utility for configuration reading.
+ */
 public class CoreUtils {
 
   enum Variables { ACCESS_KEY, SERVICE_LOCATION }

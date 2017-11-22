@@ -3,6 +3,11 @@ package net.mixaal.tools.homelights.image;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
 
+/**
+ * Basic image processor. Based on the following source code:
+ *
+ * https://github.com/carstena/game-to-philips-hue/blob/master/src/com/philips/lighting/ImageProcessor.java
+ */
 public class ImageProcessor {
 
   /**
