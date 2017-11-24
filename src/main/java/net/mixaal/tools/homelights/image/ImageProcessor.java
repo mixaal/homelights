@@ -2,11 +2,19 @@ package net.mixaal.tools.homelights.image;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
+import net.mixaal.tools.homelights.IConfig;
+import net.mixaal.tools.homelights.IConfig.ImageAnalyzer;
+import net.mixaal.tools.homelights.utils.CoreUtils;
 
 /**
  * Basic image processor. Based on the following source code:
  *
  * https://github.com/carstena/game-to-philips-hue/blob/master/src/com/philips/lighting/ImageProcessor.java
+ *
+ * Changelog:
+ *   - fixed hue/color bin computation
+ *   - brightness calculation based on average overall image area brightness
+ *   - bw movies brightness correctly calculated (light not turned off)
  */
 public class ImageProcessor {
 
@@ -50,27 +58,45 @@ public class ImageProcessor {
     float[] sumSat = new float[36];
     float[] sumVal = new float[36];
     float[] hsv = new float[3];
+    float[] sumBrightness = new float[36];
+
+    for (int i = 0; i < sumHue.length; ++i) {
+      sumHue[i] = sumSat[i] = sumVal[i] = sumBrightness[i] = 0.0f;
+    }
 
     int part_width = (int) Math.floor(width / totalParts);
     int col_nr = part_width * part - part_width;
 
+    long allSamples = 0;
+    float overallBrightness = 0.0f;
     for (int row = 0; row < height; row++) {
       for (int col = col_nr; col < (part_width * part); col++) {
+        ++allSamples;
 
-        Color c = new Color(rgb[row*width + col]);
-        //Color c = new Color(image.getRGB(col, row));
+        Color c = new Color(rgb[row * width + col]);
 
+        /**
+         * Compute overall Brightness.
+         */
+        float I = Brightness(c) / 255.0f;
+        overallBrightness += I;
+        //System.out.println("c=" + c + "I=" + I + "  35*I=" + (35 * I));
+        sumBrightness[(int) (35 * I)]++;
         hsv = Color.RGBtoHSB(c.getRed(), c.getGreen(), c.getBlue(),
             null);
 
-        // If a threshold is applied, ignore arbitrarily chosen
-        // values for "white" and "black".
-        if (applyThreshold && (hsv[1] <= 0.35f || hsv[2] <= 0.35f))
+        /**
+         * By-default discard low-saturated or low-brightness pixels
+         * for hue computation.
+         */
+        if (applyThreshold && (hsv[1] <= ImageAnalyzer.SaturationThreshold
+            || hsv[2] <= ImageAnalyzer.BrightnessThreshold)) {
           continue;
+        }
 
         // We compute the dominant color by putting colors
         // in bins based on their hue.
-        int bin = (int) Math.floor(hsv[0] / 10.0f);
+        int bin = (int) Math.floor(hsv[0] * 35.0f);
 
         // Update the sum hue/saturation/value for this bin.
         sumHue[bin] = sumHue[bin] + hsv[0];
@@ -81,38 +107,37 @@ public class ImageProcessor {
         colorBins[bin]++;
 
         // Keep track of the bin that holds the most colors.
-        if (maxBin < 0 || colorBins[bin] > colorBins[maxBin])
+        if (maxBin < 0 || colorBins[bin] > colorBins[maxBin]) {
           maxBin = bin;
+        }
       }
     }
 
+    float averageBrightness = overallBrightness / allSamples;
     // maxBin may never get updated if the image holds only transparent
     // and/or black/white pixels.
     if (maxBin < 0) {
-      return new float[] {0.0f, 0.0f, 0.0f};
+      return new float[]{0.0f, 0.0f, averageBrightness};
     }
 
     // Return a color with the average hue/saturation/value of
     // the bin with the most colors.
     hsv[0] = sumHue[maxBin] / colorBins[maxBin];
     hsv[1] = sumSat[maxBin] / colorBins[maxBin];
-    hsv[2] = sumVal[maxBin] / colorBins[maxBin];
+    hsv[2] = averageBrightness;
 
-    //int rgb = return 0xff000000 | (c.getRed << 16) | (g << 8) | (b << 0);
-    //int rgb = Color.HSBtoRGB(hsv[0], hsv[1], hsv[2]);
-    //Color rgbcolor = new Color(rgb);
+    /**
+     * If the part of the image is too dark turn the light off.
+     */
+    if (hsv[2] < ImageAnalyzer.AverageBrightnessTresholdToTurnTheLightOff) {
+      hsv[0] = hsv[1] = hsv[2] = 0.0f;
+    }
 
-    // TODO: brightness must be separated from color?
-    //Object[] objectArray = { hsv, (Integer) Brightness(rgbcolor) };
-    //return objectArray;
     return hsv;
   }
 
   /**
    * See http://alienryderflex.com/hsp.html
-   *
-   * @param c
-   * @return
    */
   public static int Brightness(Color c) {
     return (int) Math.sqrt(c.getRed() * c.getRed() * .241 + c.getGreen()

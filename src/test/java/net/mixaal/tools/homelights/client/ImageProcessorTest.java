@@ -23,10 +23,20 @@ public class ImageProcessorTest {
     Assert.assertEquals(3, color3.length);
 
     Assert.assertArrayEquals(new float[] {0, 0, 0}, color1, 0.01f);
-    Assert.assertArrayEquals(new float[] {0.724931f, 0.9867932f, 0.99887437f}, color2, 0.01f);
-    Assert.assertArrayEquals(new float[] {0.30476463f, 0.99f, 0.99f}, color3, 0.01f);
+    Assert.assertArrayEquals(new float[] {0.74f, 0.9867932f, 0.38f}, color2, 0.01f);
+    Assert.assertArrayEquals(new float[] {0.29f, 0.99f, 0.82f}, color3, 0.01f);
   }
 
+  @Test
+  public void blackAndWhite() throws IOException {
+    final BufferedImage image = ImageIO.read(new File(this.getClass().getClassLoader().getResource("bw.png").getFile()));
+    int rgb [] = image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0, image.getWidth());
+    final ImageProcessor im = new ImageProcessor(rgb, image.getWidth(), image.getHeight(), 4);
+    float [] color1 = im.getDominantColor(image, true, 1);
+    float [] color2 = im.getDominantColor(image, true, 2);
+    float [] color3 = im.getDominantColor(image, true, 3);
+    float [] color4 = im.getDominantColor(image, true, 4);
+  }
 
 
 }

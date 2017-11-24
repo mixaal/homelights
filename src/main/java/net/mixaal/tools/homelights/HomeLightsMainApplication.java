@@ -6,6 +6,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Arrays;
 import javax.imageio.ImageIO;
 import javax.ws.rs.core.UriBuilder;
 import net.mixaal.tools.homelights.IConfig.ImageAnalyzer;
@@ -25,6 +26,11 @@ public class HomeLightsMainApplication {
   private static final String ACCESS_KEY = CoreUtils.getAccessKey();
   private static final URI hueService = UriBuilder.fromUri(CoreUtils.getServiceLocation()).build();
   private static final IHueClient client = new HueClient(hueService, ACCESS_KEY);
+
+  /**
+   * Before turning the light off, consult the {@link Lights} turn off interval.
+   */
+  private static long dimmLightTime[] = new long[Lights.Deploy.length];
 
 
   /**
@@ -61,6 +67,7 @@ public class HomeLightsMainApplication {
    * @param args command line arguments
    */
   public static void main(String args [] ) {
+    CoreUtils.printConfiguration();
     final HomeLightsMainApplication application = new HomeLightsMainApplication();
     final File tempDir = Files.createTempDir();
     System.out.println("tempDir="+tempDir.getAbsolutePath());
@@ -91,15 +98,34 @@ public class HomeLightsMainApplication {
    * @param hsv color to deploy
    */
   private void deployColorToLight(Integer lightNo, float [] hsv) {
+    int lightIdx = Arrays.binarySearch(Lights.Deploy, lightNo);
     if(hsv[2] == 0.0f) {
-      client.lightOff(lightNo);
+      final long now = System.currentTimeMillis();
+      /**
+       * In case this is the first time in a row we want to turn the light off
+       * set the time of the first attempt.
+       */
+      if(dimmLightTime[lightIdx] == 0) {
+        dimmLightTime[lightIdx] = System.currentTimeMillis();
+      }
+      final long duration = now - dimmLightTime[lightIdx];
+      if(duration>Lights.TurnOffTimeout) {
+        /**
+         * Tuen the light off when we exceeded the timeout.
+         */
+        client.lightOff(lightNo);
+      }
       return;
+    }
+    else {
+      /**
+       * Reset the timer.
+       */
+      dimmLightTime[lightIdx] = 0L;
     }
     final int hue = (int)(65535 * hsv[0]);
     final int saturation = (int)(255 * hsv[1]);
-    //final int brightness = (int)(ImageAnalyzer.BrightnessMultiplication * 255 * hsv[2]);
-    Color c = new Color(Color.HSBtoRGB(hsv[0], hsv[1], hsv[2]));
-    final int brightness = (int)(ImageAnalyzer.BrightnessMultiplication * ImageProcessor.Brightness(c));
+    final int brightness = (int)(ImageAnalyzer.BrightnessMultiplication * 255 * hsv[2]);
     client.lightOn(lightNo, hue, saturation, brightness);
   }
 
