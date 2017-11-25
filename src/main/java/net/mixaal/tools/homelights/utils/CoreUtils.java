@@ -119,8 +119,8 @@ public class CoreUtils {
 
   public static void printConfiguration() {
     System.out.println("Configured as:");
-    System.out.println("  Movie mode: "+isMovieMode());
-    System.out.println("  Bridge IP : "+getServiceLocation());
+    System.out.println("  Movie mode  : "+isMovieMode());
+    System.out.println("  Bridge IP   : "+getServiceLocation());
   }
 
   private static java.util.Properties readProperties() {
